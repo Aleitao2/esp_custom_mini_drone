@@ -18,16 +18,36 @@
 
 | Part | Value | Why |
 |---|---|---|
-| Q | **AO3400A** (marking `A09T`) | 30 V, 5.7 A continuous, 30 A pulsed. R_DS(on) < 48 mΩ at V_GS = 2.5 V and < 32 mΩ at 4.5 V, so ~35–40 mΩ at our 3.3 V gate. At 2 A: ~0.16 W, about +20 °C in SOT-23. SI2302 (`A2SHB`) also works but has ~2× the R_DS(on) and runs warmer. |
+| Q | **09N03LA** (yours, DPAK) for now; **AO3400A** (marking `A09T`) later to save weight | 30 V, 5.7 A continuous, 30 A pulsed. R_DS(on) < 48 mΩ at V_GS = 2.5 V and < 32 mΩ at 4.5 V, so ~35–40 mΩ at our 3.3 V gate. At 2 A: ~0.16 W, about +20 °C in SOT-23. SI2302 (`A2SHB`) also works but has ~2× the R_DS(on) and runs warmer. |
 | Gate R | 100 Ω | Limits GPIO current spikes into the gate charge (~7 nC) and damps ringing. Edges stay ≈0.2–0.4 µs, about 1 % of a 20 kHz period. |
 | Gate pull-down | 10 kΩ gate→source | Keeps the motor **off** while the MCU is resetting, booting or unpowered. |
 | Flyback | **SS34** (3 A, 40 V Schottky, SMA) | Carries motor current during PWM off-time. A regular 1N400x is **not acceptable**: its slow reverse recovery at 20 kHz causes current spikes, heating and EMI. SS14 / 1N5819 (1 A) are acceptable fallbacks. |
 | Bulk | 470–1000 µF, ≥6.3 V (10 V preferred), low-ESR, plus 10 µF ceramic | Supplies the PWM current edges locally so the battery leads' inductance doesn't make voltage spikes. Mount it **at the driver board**, across VBAT+/PGND, ≤2 cm from the FETs. |
 
-### Checking your MOSFETs
-Read the marking on yours and send it to me.
+### Your MOSFETs: 09N03LA (Infineon IPD09N03LA, DPAK/TO-252) — OK to use
+Data from the 09N03LA family datasheet (IPB09N03LA G):
+
+| Parameter | Value | Verdict |
+|---|---|---|
+| "LA" | Logic level | ✅ |
+| V_GS(th) | 1.2 V min, 1.6 V typ, 2.0 V max | ✅ |
+| R_DS(on) at 4.5 V | ≤ 15 mΩ | ✅ |
+| R_DS(on) at 3.3 V | Not specified. Expected ~20–40 mΩ at 2 A: 3.3 V is 1.3–2 V above threshold, and these are 50 A parts. | ✅ probably; verify on the bench |
+| Gate charge | ≈ 2× the AO3400A | Edges ~0.5–1 µs with 100 Ω. Switching loss ≈ 0.1 W per FET at 20 kHz, fine. If they get warm, drop the gate resistor to 47 Ω. |
+| Weight | 0.375 g each (1.5 g for 4) | ⚠️ AO3400A is 0.01 g each, so switching later saves ~1.4 g |
+
+They are often salvaged from PC motherboards (CPU power stage). Before soldering, check each one with the multimeter in diode mode:
+- Red probe on source, black on drain: ~0.4–0.7 V (body diode).
+- Reversed: open.
+- Gate to anything: open.
+
+**Bench verification (phase 4, single motor + prop on the bench PSU, through the driver at 100 %):** measure drain→source voltage. V_DS < 0.1 V at ~2 A means R_DS(on) < 50 mΩ, which is good.
+
+DPAK on perfboard: the large tab is the **drain**. Solder the tab flat onto a pad cluster (it is also the heatsink). Gate is the left leg, source the right leg (the middle leg is drain, usually cut short).
+
+### Other MOSFET types, for reference
 - **Suitable:** small SOT-23 parts marked `A09T` (AO3400A) or `A2SHB` (SI2302).
-- **Too small:** 2N7002 / BSS138 (≤0.3 A), even though they are SOT-23 too.
+- **Too small:** 2N7002 / BSS138 (≤0.3 A).
 - **Not suitable:** TO-220 parts such as IRFZ44N, IRF540N, IRF3205. They are not fully on at 3.3 V gate drive, and they weigh ~2 g each.
 - **P-channel MOSFETs are not needed.**
 

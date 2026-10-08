@@ -40,7 +40,8 @@ Weight-saving option for later (not now): skip the boost and feed the cell strai
 ```
 
 ### Notes
-- **SS34 on the 5 V output (diode-OR).** The Stamp-S3 `5V` pin connects straight to USB VBUS; its schematic shows only a polyfuse between them. Without the diode, plugging USB in while the battery is connected ties the PC's 5 V to the boost output. With the diode, the higher source wins and nothing back-feeds. The Stamp-S3 sees ~4.6 V from the boost, which is fine for the buck.
+- **Bench workflow (decided):** everything is tested on the bench PSU first; the battery comes last. **USB and boost are never connected at the same time** (SW1 off whenever USB is plugged in). See [phase0.md](phase0.md).
+- **SS34 on the 5 V output (diode-OR), recommended insurance.** The Stamp-S3 `5V` pin connects straight to USB VBUS; its schematic shows only a polyfuse between them. Without the diode, plugging USB in while the battery is connected ties the PC's 5 V to the boost output. With the diode, the higher source wins and nothing back-feeds. The Stamp-S3 sees ~4.6 V from the boost, which is fine for the buck.
   - Consequence: **while USB is plugged in, the logic runs from USB, not the boost.** The real "logic on boost under motor load" test therefore runs untethered. The bench firmware logs it to flash, see [phase0.md](phase0.md).
 - **SW1 (logic switch)** lets you charge the cell in-circuit with the electronics off. The battery connector is the master power.
 - **Always unplug the battery for storage.** The module's boost and charger chips draw a few mA even when idle. That would over-discharge an unprotected cell within days.
