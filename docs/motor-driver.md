@@ -64,9 +64,9 @@ Read each capacitor's label: capacitance (µF) and voltage (V). Look for:
 | madflight StampFly example | 5 kHz |
 | ESP-Drone (720 motors) | 15 kHz, 8-bit |
 | Crazyflie | 328 kHz, 8-bit |
-| **This build (default)** | **20 kHz, 11-bit** (LEDC 80 MHz / 20 kHz = 4000 → 11 bits = 2048 steps) |
+| **This build (default)** | **20 kHz, 10-bit** (LEDC clock = 40 MHz crystal on the ESP32-S3 in Arduino-ESP32 3.x; 40 MHz / 20 kHz = 2000 → 10 bits = 1024 steps) |
 
-- **Why 20 kHz:** it's above hearing, and it keeps the 11-bit resolution needed for smooth PID output. Switching loss stays negligible with ~0.3 µs edges.
+- **Why 20 kHz:** it's above hearing, and 1024 steps (0.1 %) is plenty for smooth PID output (Crazyflie and ESP-Drone use 256). Switching loss stays small.
 - **Why not lower:** coreless motors have very low inductance, so lower frequencies make the current ripple large (worse efficiency) and audible.
 - **Why not higher:** higher frequencies lose resolution and increase switching loss.
 - **Phase 4 will measure it:** the bench CLI `freq` command switches 8 / 16 / 20 / 32 kHz. Compare current at equal thrust and FET temperature, then set the flight value in madflight (`out.setup_brushed(4, idx, freq_hz)`).

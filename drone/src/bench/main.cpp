@@ -49,7 +49,8 @@ struct TestLog {
 static TestLog lastLog = {};
 static float   vcal = 1.0f;
 static uint32_t pwmHz = PWM_DEFAULT_HZ;
-static uint8_t  pwmBits = 11;
+static uint8_t  pwmBits = 0;
+static bool     pwmOk = false;
 static bool     btnTestEnabled = false;
 
 static bool     armed = false;
@@ -99,27 +100,43 @@ static uint16_t readMv(uint8_t pin, float divider, int samples) {
 static uint16_t vbatMv(int samples = 32) { return (uint16_t)(readMv(PIN_VBAT, VBAT_DIVIDER, samples) * vcal); }
 static uint16_t v5Mv(int samples = 8)    { return readMv(PIN_V5SENSE, V5_DIVIDER, samples); }
 
+static uint32_t ledcClockHz() {
+  // Arduino-ESP32 3.x clocks LEDC from the 40 MHz XTAL on the ESP32-S3 (not the 80 MHz APB)
+  return ledcGetClockSource() == LEDC_USE_XTAL_CLK ? 40000000UL : 80000000UL;
+}
+
 static uint8_t pwmBitsFor(uint32_t hz) {
-  // LEDC: 80 MHz APB clock, duty steps = 80e6 / f must fit in 2^bits, max 14 bits
+  // duty steps = clock / f must fit in 2^bits, max 14 bits
+  uint32_t clk = ledcClockHz();
   uint8_t bits = 1;
-  while (bits < 14 && (80000000UL >> (bits + 1)) >= hz) bits++;
+  while (bits < 14 && (clk >> (bits + 1)) >= hz) bits++;
   return bits;
 }
 
 static void motorsAllOff() {
-  for (int i = 0; i < 4; i++) ledcWrite(MOTOR_PINS[i], 0);
+  for (int i = 0; i < 4; i++) {
+    if (pwmOk) ledcWrite(MOTOR_PINS[i], 0);
+    else digitalWrite(MOTOR_PINS[i], LOW);
+  }
 }
 
 static bool pwmSetup(uint32_t hz) {
-  uint8_t bits = pwmBitsFor(hz);
-  bool ok = true;
-  for (int i = 0; i < 4; i++) {
-    ledcDetach(MOTOR_PINS[i]);
-    ok &= ledcAttach(MOTOR_PINS[i], hz, bits);
-    ledcWrite(MOTOR_PINS[i], 0);
+  // Step down from the computed resolution in case the clock assumption is wrong.
+  for (int bits = pwmBitsFor(hz); bits >= 4; bits--) {
+    bool ok = true;
+    for (int i = 0; i < 4 && ok; i++) {
+      ledcDetach(MOTOR_PINS[i]);
+      ok = ledcAttach(MOTOR_PINS[i], hz, bits);
+    }
+    if (ok) {
+      for (int i = 0; i < 4; i++) ledcWrite(MOTOR_PINS[i], 0);
+      pwmHz = hz; pwmBits = bits; pwmOk = true;
+      return true;
+    }
   }
-  if (ok) { pwmHz = hz; pwmBits = bits; }
-  return ok;
+  for (int i = 0; i < 4; i++) { ledcDetach(MOTOR_PINS[i]); pinMode(MOTOR_PINS[i], OUTPUT); digitalWrite(MOTOR_PINS[i], LOW); }
+  pwmOk = false;
+  return false;
 }
 
 static void setDuty(uint8_t mask, float frac) {
@@ -255,13 +272,18 @@ static void printStatus() {
 #else
   Serial.println("Brownout detector: level macro not found in sdkconfig");
 #endif
-  Serial.printf("PWM      %lu Hz, %u bits (%lu steps)\n", (unsigned long)pwmHz, pwmBits, (unsigned long)(1UL << pwmBits));
+  if (pwmOk)
+    Serial.printf("PWM      %lu Hz, %u bits (%lu steps), LEDC clock %lu MHz\n", (unsigned long)pwmHz, pwmBits,
+                  (unsigned long)(1UL << pwmBits), (unsigned long)(ledcClockHz() / 1000000UL));
+  else
+    Serial.println("PWM      SETUP FAILED - motor commands disabled");
   Serial.printf("Armed    %s   btntest %s   tx %s\n", armed ? "YES" : "no", btnTestEnabled ? "ON" : "off", txOn ? "ON" : "off");
   Serial.printf("Uptime   %lu s, CPU %lu MHz, heap %lu\n", (unsigned long)(millis() / 1000),
                 (unsigned long)getCpuFrequencyMhz(), (unsigned long)ESP.getFreeHeap());
 }
 
 static bool requireArmed() {
+  if (!pwmOk) { Serial.println("Refused: motor PWM setup FAILED (see 'status')"); return false; }
   if (armed) { armedAt = millis(); return true; }
   Serial.println("Refused: not armed. Remove props, then type: arm PROPS-OFF");
   return false;
@@ -306,8 +328,8 @@ static void handleLine(String cmd) {
   else if (c == "freq") {
     uint32_t hz = a1 ? atoi(a1) : 0;
     if (running || hz < 4000 || hz > 40000) { Serial.println("usage: freq <4000-40000> (motors must be stopped)"); return; }
-    Serial.println(pwmSetup(hz) ? "OK" : "LEDC setup FAILED");
-    Serial.printf("PWM %lu Hz, %u bits\n", (unsigned long)pwmHz, pwmBits);
+    if (pwmSetup(hz)) Serial.printf("OK: PWM %lu Hz, %u bits\n", (unsigned long)pwmHz, pwmBits);
+    else Serial.println("LEDC setup FAILED - motor commands disabled");
   }
   else if (c == "arm") {
     if (!a1 || String(a1) != "PROPS-OFF") { Serial.println("Type exactly: arm PROPS-OFF  (confirms props are removed)"); return; }
@@ -396,13 +418,15 @@ void setup() {
     }
   }
 
-  pwmSetup(PWM_DEFAULT_HZ);
-  led(0, 0, 20); // blue = ready, disarmed
+  bool pwmBoot = pwmSetup(PWM_DEFAULT_HZ);
+  led(pwmBoot ? 0 : 40, 0, pwmBoot ? 20 : 0); // blue = ready, disarmed; red = PWM failed
 
   Serial.begin(115200);
   uint32_t t0 = millis();
   while (!Serial && millis() - t0 < 1500) delay(10);
   Serial.printf("\n\nDroneClaude phase 0 bench firmware - reset reason: %s\n", resetReasonStr(rr));
+  if (pwmBoot) Serial.printf("Motor PWM ready: %lu Hz, %u bits\n", (unsigned long)pwmHz, pwmBits);
+  else Serial.println("!!! Motor PWM setup FAILED - motor commands disabled");
   if (lastLog.seq && lastLog.completed == 0) Serial.println("!!! Previous test was INTERRUPTED by a reset - see 'log'");
   printHelp();
 }
