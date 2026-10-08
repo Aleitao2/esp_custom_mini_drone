@@ -27,10 +27,25 @@ Bench PSU defaults: **3.70 V**, current limit **1 A** (props off) or **3 A** (on
 - [ ] Lower the PSU slowly to find where the 5 V output collapses with no load: **V_min_noload = ?**
 
 ## 3. ⚠️ Single-motor thrust and current test (PROPS ON — one motor, clamped)
-- **Rig:** hot-glue/tape one motor **upside down** (shaft pointing down) to the top of a ~10 cm stand on the scale. The prop blows air **up**, away from the pan, so the reading goes **up** by the thrust.
-- **Check first:** the scale's max capacity is above stand + motor + ~40 g.
+Test 1 (motor glued on the pan) gave only ~11 g at 3.7 V / 1.6 A, which is suspect: see [budget.md](budget.md). Re-test with a "gallows" rig:
+
+```
+        arm (stick, ≥ 5 cm)
+   ┌──────────────────┐
+   │                  █  motor, glued to the arm end, SHAFT POINTING DOWN
+   │ post             █
+   │ (stick,          ┴  prop, mounted exactly as on the drone (writing side toward the motor)
+   │  ≥ 15 cm)       ↑↑↑ air must flow UP, from the prop toward the motor body
+   │
+   │                     ≥ 10 cm of free air between the prop and the pan
+ ──┴── small base ──────────────  scale pan
+```
+
+- **Clearances:** the prop tip must clear the post by ≥ 1.5 cm (arm ≥ 5 cm). Nothing within ~3 cm above or around the prop except the motor and the thin arm.
+- **Direction:** air must flow **from the prop toward the motor body**; that is the prop's design direction. If air blows down toward the scale, **swap the two motor wires** (don't flip the prop). Done right, air goes up, thrust pushes the motor **down**, and the reading **increases**.
+- **Scale:** tare with the rig on the pan. The max capacity must be above rig + motor + ~30 g.
 - PSU current limit **3 A**, motor wires straight to the PSU (no MCU). Safety glasses, fingers clear.
-- [ ] Record at 3.4 V, 3.7 V and 4.0 V: **PSU current (A) and thrust (g)**. Check that the prop direction blows air up; if not, swap the motor wires.
+- [ ] Record at 3.4 V, 3.7 V and 4.0 V: **PSU current (A) and thrust (g)**.
 
 ## 4. Build the motor driver board + wiring
 - [ ] Driver per [motor-driver.md](motor-driver.md), using your 09N03LA (diode-test them first) and SS34 flyback diodes. **Don't run motors through the driver without flyback diodes.**

@@ -42,7 +42,23 @@ That's 5.6 g more than the first estimate. Where it came from: headers and cable
 | SX1278: thin 30 AWG leads and a plain 17.3 cm wire antenna | ~0.5–1 g (depends on what's fitted now) |
 | Frame ≤ 8 g | ~1 g |
 
-## Thrust (estimate, to be measured)
+## Thrust — measured, test 1 (2026-10-08, **suspect setup**)
+Motor glued on the scale pan, prop blowing up. Bench PSU, one motor, 55 mm prop:
+
+| V | A | W | thrust g | g/W |
+|---|---|---|---|---|
+| 3.4 | 1.5 | 5.1 | 9.5–10 | 1.9 |
+| 3.7 | 1.6 | 5.9 | 10.8–11 | 1.8 |
+| 4.0 | 1.8 | 7.2 | 12–12.5 | 1.7 |
+
+The current matches the estimate, but **the thrust is about half** (1.8 g/W; ~3–4 g/W expected).
+- **If real:** 4 × 11 g = 44 g < 63.7 g AUW, so it **cannot hover**.
+- **Why it's suspect:**
+  1. The prop was ~2–3 cm above the pan. It starves its own inflow, and the suction lifts the pan, so the reading comes out low.
+  2. Making air go up with an upright motor means a reversed wire or swapped/flipped prop. A prop spinning backwards gives roughly half thrust.
+- **Re-test with the gallows rig** in [phase0.md](phase0.md) step 3 before changing any design.
+
+## Thrust (estimate, before measuring)
 
 - **Motor:** 720 coreless, ~48 krpm no-load at 3.7 V (listing), so Kv ≈ 13 000 rpm/V. Your no-load 120 mA fits that.
 - **Prop:** 55 mm. Prop-coefficient estimate (C_T ≈ 0.09, C_P ≈ 0.05) at a loaded 28–32 krpm and ~3.6 V gives **25–30 g thrust at ~1.5–2 A per motor**. Total: **100–120 g**.
